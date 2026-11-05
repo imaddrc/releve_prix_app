@@ -73,10 +73,12 @@ td:first-child,th:first-child{text-align:start}
 <main>
 
 <section id="s-home" class="screen on">
-  <div class="ctx" id="homeStat"></div>
-  <button class="btn" onclick="startNew()">＋ رصد جديد</button>
-  <button class="btn alt" onclick="showProgress()">📊 متابعة عدد الأسعار المجموعة</button>
-  <button class="btn alt" onclick="showExport()">📤 تصدير وإرسال البيانات</button>
+  <label for="dirSel">المديرية الولائية للتجارة (إجباري)</label>
+  <select id="dirSel"></select>
+  <div class="ctx" id="homeStat" style="margin-top:12px"></div>
+  <button class="btn hb" onclick="startNew()">＋ رصد جديد</button>
+  <button class="btn alt hb" onclick="showProgress()">📊 متابعة عدد الأسعار المجموعة</button>
+  <button class="btn alt hb" onclick="showExport()">📤 تصدير وإرسال البيانات</button>
 </section>
 
 <section id="s-setup" class="screen">
@@ -116,6 +118,8 @@ td:first-child,th:first-child{text-align:start}
   <div class="ctx" id="expStat"></div>
   <label for="edate">البيانات المصدّرة</label>
   <select id="edate"></select>
+  <label for="edir">المديرية</label>
+  <select id="edir"></select>
   <button class="btn" onclick="doExport('xlsx')">📗 تصدير Excel (.xlsx)</button>
   <button class="btn alt" onclick="doExport('csv')">📄 تصدير CSV</button>
   <button class="btn alt" onclick="doExport('csvsum')">📊 ملخص CSV (المتوسط والوسيط)</button>
@@ -143,7 +147,8 @@ const AV=[["كثرة","بكثرة"],["متوسط","متوسط"],["قليل","ب�
 const TARGET=5;
 const SZ=["كبير","متوسط","صغير"],SIZED=["الخضر","الفواكه"];
 const $=s=>document.querySelector(s);
-const S={commune:"",type:"",point:"",cat:""};
+const DIRS=["سطيف","بجاية","جيجل","ميلة","مسيلة","برج بوعريريج","بوسعادة"];
+const S={dir:"",commune:"",type:"",point:"",cat:""};
 let cur={}, allCache=[], stack=["home"];
 
 /* ---------- IndexedDB ---------- */
@@ -177,8 +182,9 @@ function go(n,push=true){
 $("#back").onclick=()=>{stack.pop();go(stack[stack.length-1]||"home",false)};
 
 async function refreshHome(){
+ if(!S.dir){$("#homeStat").innerHTML="اختر المديرية الولائية للتجارة للبدء";return}
  const a=await getAll();const d=today();
- const t=a.filter(r=>r.date===d);
+ const t=a.filter(r=>r.date===d&&(r.dir||S.dir)===S.dir);
  const pts=new Set(t.map(r=>r.commune+"|"+r.type+"|"+r.point));
  $("#homeStat").innerHTML=`اليوم: <b>${pts.size}</b> نقطة بيع — <b>${t.filter(r=>r.price>0).length}</b> سعر مسجّل<br>المجموع المحفوظ: ${a.length} سجل`;
 }
@@ -193,7 +199,8 @@ function validate(){
  $("#toCats").classList.toggle("dis",!(S.commune&&S.type&&S.point));
 }
 $("#commune").oninput=validate;$("#point").oninput=validate;
-function startNew(){S.type="";S.point="";S.cat="";
+function startNew(){if(!S.dir){toast("اختر المديرية أولاً");return}
+ S.type="";S.point="";S.cat="";
  $("#commune").value=localStorage.getItem("commune")||"";$("#point").value="";
  renderTypes();validate();go("setup")}
 function startNewPointSameCommune(){S.type="";S.point="";$("#point").value="";renderTypes();validate();stack=["home"];go("setup")}
@@ -202,17 +209,17 @@ function toCats(){
  localStorage.setItem("commune",S.commune);
  renderCats();go("cats");
 }
-function ctxHTML(){return `📍 ${esc(S.commune)} — ${esc(S.type)} — <b>${esc(S.point)}</b>`}
+function ctxHTML(){return `🏛 ${esc(S.dir)}<br>📍 ${esc(S.commune)} — ${esc(S.type)} — <b>${esc(S.point)}</b>`}
 async function renderCats(){
  $("#ctx1").innerHTML=ctxHTML();
- const a=(await getAll()).filter(r=>r.date===today()&&r.commune===S.commune&&r.type===S.type&&r.point===S.point);
+ const a=(await getAll()).filter(samePt);
  $("#cats").innerHTML=CATS.map(([n,i])=>{const c=new Set(a.filter(r=>r.cat===n).map(r=>r.product)).size;
   return `<button class="card" data-v="${n}"><span class="ic">${i}</span>${n}${c?`<br><small style="color:var(--g)">✔ ${c} منتج</small>`:""}</button>`}).join("");
  $("#cats").querySelectorAll(".card").forEach(b=>b.onclick=()=>openCat(b.dataset.v));
 }
 
 /* ---------- products ---------- */
-const samePt=r=>r.date===today()&&r.commune===S.commune&&r.type===S.type&&r.point===S.point;
+const samePt=r=>r.date===today()&&(r.dir||S.dir)===S.dir&&r.commune===S.commune&&r.type===S.type&&r.point===S.point;
 async function openCat(cat,fresh){
  S.cat=cat;S.fresh=!!fresh;allCache=await getAll();cur={};
  PRODUCTS.filter(p=>p.cat===cat).forEach(p=>{
@@ -224,7 +231,7 @@ async function openCat(cat,fresh){
  renderProds();go("prods");
 }
 function othersCount(name){
- return allCache.filter(r=>r.date===today()&&r.commune===S.commune&&r.product===name&&r.price>0&&(S.fresh||!samePt(r))).length;
+ return allCache.filter(r=>r.date===today()&&(r.dir||S.dir)===S.dir&&r.commune===S.commune&&r.product===name&&r.price>0&&(S.fresh||!samePt(r))).length;
 }
 function findInput(n,i){
  for(const el of document.querySelectorAll(".prod"))if(el.dataset.n===n){const x=el.querySelectorAll(".ent")[i];return x&&x.querySelector("input")}
@@ -279,7 +286,7 @@ async function saveCat(again){
   for(const c of cur[p.name]){
    const price=parseFloat(c.price);
    if(!c.avail&&!(price>0))continue;
-   await put({key:[today(),S.commune,S.type,S.point,p.name,seq].join("|"),seq,date:today(),time:nowT(),commune:S.commune,type:S.type,point:S.point,cat:p.cat,
+   await put({key:[today(),S.dir,S.commune,S.type,S.point,p.name,seq].join("|"),seq,dir:S.dir,date:today(),time:nowT(),commune:S.commune,type:S.type,point:S.point,cat:p.cat,
     product:p.name,unit:p.unit,size:SIZED.includes(p.cat)?(c.size||""):"",price:price>0?price:0,avail:c.avail||"متوسط"});
    seq++;n++;
   }
@@ -291,7 +298,8 @@ async function saveCat(again){
 
 /* ---------- progress ---------- */
 async function showProgress(){
- const a=await getAll();
+ if(!S.dir){toast("اختر المديرية أولاً");return}
+ const a=(await getAll()).filter(r=>(r.dir||S.dir)===S.dir);
  const coms=[...new Set(a.map(r=>r.commune))],dates=[...new Set(a.map(r=>r.date))].sort().reverse();
  if(!a.length){toast("لا توجد بيانات بعد");return}
  $("#pcom").innerHTML=coms.map(c=>`<option>${esc(c)}</option>`).join("");
@@ -300,7 +308,7 @@ async function showProgress(){
  drawProg(a);go("prog");
 }
 async function drawProg(a){
- if(!Array.isArray(a))a=await getAll();
+ if(!Array.isArray(a))a=(await getAll()).filter(r=>(r.dir||S.dir)===S.dir);
  const c=$("#pcom").value,d=$("#pdate").value;
  const rows=a.filter(r=>r.commune===c&&r.date===d);
  const pts=new Set(rows.map(r=>r.type+"|"+r.point));
@@ -312,17 +320,17 @@ async function drawProg(a){
 }
 
 /* ---------- export ---------- */
-const HEAD=["التاريخ","الوقت","البلدية","نوع نقطة البيع","نقطة البيع","الفئة","المنتج","الوحدة","الحجم","السعر (دج)","درجة التوفر"];
+const HEAD=["المديرية","التاريخ","الوقت","البلدية","نوع نقطة البيع","نقطة البيع","الفئة","المنتج","الوحدة","الحجم","السعر (دج)","درجة التوفر"];
 const AVL={"كثرة":"متوفر بكثرة","متوسط":"متوفر بكمية متوسطة","قليل":"متوفر بقليل","غير متوفر":"غير متوفر"};
-const toRow=r=>[r.date,r.time,r.commune,r.type,r.point,r.cat,r.product,r.unit,r.size||"",r.price>0?r.price:"",AVL[r.avail]||r.avail];
-const SH=["التاريخ","البلدية","الفئة","المنتج","الوحدة","الحجم","عدد الأسعار","أدنى سعر","أعلى سعر","المتوسط","الوسيط"];
+const toRow=r=>[r.dir||"",r.date,r.time,r.commune,r.type,r.point,r.cat,r.product,r.unit,r.size||"",r.price>0?r.price:"",AVL[r.avail]||r.avail];
+const SH=["المديرية","التاريخ","البلدية","الفئة","المنتج","الوحدة","الحجم","عدد الأسعار","أدنى سعر","أعلى سعر","المتوسط","الوسيط"];
 function med(a){const s=[...a].sort((x,y)=>x-y),m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2}
 const r2=x=>Math.round(x*100)/100;
 function summaryRows(rows){
  const g={},order=[];
  const add=(k,meta,price)=>{if(!g[k]){g[k]={meta,v:[]};order.push(k)}g[k].v.push(price)};
  rows.filter(r=>r.price>0).forEach(r=>{
-  const base=[r.date,r.commune,r.cat,r.product,r.unit],bk=base.join("|");
+  const base=[r.dir||"",r.date,r.commune,r.cat,r.product,r.unit],bk=base.join("|");
   if(SIZED.includes(r.cat)){
    add(bk+"|0",[...base,"الكل"],r.price);
    const s=r.size||"غير محدد";add(bk+"|1"+s,[...base,s],r.price);
@@ -331,15 +339,19 @@ function summaryRows(rows){
  return order.sort().map(k=>{const{meta,v}=g[k];return [...meta,v.length,Math.min(...v),Math.max(...v),r2(v.reduce((a,b)=>a+b,0)/v.length),r2(med(v))]});
 }
 async function showExport(){
+ if(!S.dir){toast("اختر المديرية أولاً");return}
  const a=await getAll();
  if(!a.length){toast("لا توجد بيانات بعد");return}
  const dates=[...new Set(a.map(r=>r.date))].sort().reverse();
  $("#edate").innerHTML=`<option value="">كل البيانات (${a.length} سجل)</option>`+dates.map(d=>`<option>${d}</option>`).join("");
  $("#expStat").innerHTML=`المحفوظ في الهاتف: <b>${a.length}</b> سجل`;
+ const ds=[...new Set(a.map(r=>r.dir||"").filter(Boolean))];
+ $("#edir").innerHTML='<option value="">كل المديريات</option>'+ds.map(x=>`<option>${x}</option>`).join("");
+ $("#edir").value=ds.includes(S.dir)?S.dir:"";
  go("exp");
 }
 async function selRows(){const d=$("#edate").value;const a=await getAll();
- return a.filter(r=>!d||r.date===d).sort((x,y)=>(x.date+x.commune+x.point+x.cat).localeCompare(y.date+y.commune+y.point+y.cat))}
+ return a.filter(r=>(!d||r.date===d)&&(!$("#edir").value||(r.dir||"")===$("#edir").value)).sort((x,y)=>(x.date+x.commune+x.point+x.cat).localeCompare(y.date+y.commune+y.point+y.cat))}
 const fname=ext=>`prix_${$("#edate").value||"tout"}.${ext}`;
 function csvBlob(rows,sum){
  const q=v=>`"${String(v).replace(/"/g,'""')}"`;
@@ -401,7 +413,7 @@ async function shareFile(){
 async function summary(){
  const rows=await selRows();const d=$("#edate").value||"كل التواريخ";
  let t=`رصد أسعار — ${d}\n`;
- const by={};rows.forEach(r=>{(by[r.commune]=by[r.commune]||[]).push(r)});
+ const by={};rows.forEach(r=>{const k=(r.dir?r.dir+" — ":"")+r.commune;(by[k]=by[k]||[]).push(r)});
  for(const c in by){t+=`\n📍 ${c}\n`;
   PRODUCTS.forEach(p=>{const v=by[c].filter(r=>r.product===p.name&&r.price>0).map(r=>r.price);
    if(v.length){const m=v.reduce((a,b)=>a+b,0)/v.length;t+=`• ${p.name} (${p.unit}): ${v.length} أسعار، من ${Math.min(...v)} إلى ${Math.max(...v)}، متوسط ${m.toFixed(0)}، وسيط ${med(v).toFixed(0)} دج\n`}})}
@@ -412,13 +424,23 @@ async function shareMail(){location.href="mailto:?subject="+encodeURIComponent("
 async function wipe(){
  const d=$("#edate").value;
  if(!confirm(d?`حذف كل بيانات ${d} ؟ (تأكد أنك صدّرتها)`:"حذف كل البيانات المحفوظة ؟ (تأكد أنك صدّرتها)"))return;
- const a=await getAll();for(const r of a)if(!d||r.date===d)await del(r.key);
+ const a=await getAll();for(const r of a)if((!d||r.date===d)&&(!$("#edir").value||(r.dir||"")===$("#edir").value))await del(r.key);
  toast("تم الحذف");go("home");
 }
 
 /* ---------- init ---------- */
 function net(){$("#off").style.display=navigator.onLine?"none":"block"}
 addEventListener("online",net);addEventListener("offline",net);net();
+function gateHome(){document.querySelectorAll(".hb").forEach(b=>b.classList.toggle("dis",!S.dir))}
+function initDir(){
+ const sel=$("#dirSel");
+ sel.innerHTML='<option value="">— اختر المديرية —</option>'+DIRS.map(d=>`<option>${d}</option>`).join("");
+ let v="";try{v=localStorage.getItem("dir")||""}catch(e){}
+ S.dir=DIRS.includes(v)?v:"";sel.value=S.dir;
+ sel.onchange=()=>{S.dir=sel.value;try{localStorage.setItem("dir",S.dir)}catch(e){}gateHome();refreshHome()};
+ gateHome();
+}
+initDir();
 openDB().then(refreshHome);
 if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js");
 </script>
