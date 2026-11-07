@@ -437,13 +437,36 @@ async function shareFile(){
  try{if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:"رصد الأسعار"});return}}catch(e){if(e.name==="AbortError")return}
  download(f);toast("المشاركة غير مدعومة هنا — تم تنزيل الملف");
 }
+const RISE_MIN=0; /* نسبة الارتفاع الدنيا لوسم 🟡 (0 = أي ارتفاع) */
 async function summary(){
- const rows=await selRows();const d=$("#edate").value||"كل التواريخ";
- let t=`رصد أسعار — ${d}\n`;
- const by={};rows.forEach(r=>{const k=(r.dir?r.dir+" — ":"")+r.commune;(by[k]=by[k]||[]).push(r)});
- for(const c in by){t+=`\n📍 ${c}\n`;
-  PRODUCTS.forEach(p=>{const v=by[c].filter(r=>r.product===p.name&&r.price>0).map(r=>r.price);
-   if(v.length){const m=v.reduce((a,b)=>a+b,0)/v.length;t+=`• ${p.name} (${p.unit}): ${v.length} أسعار، من ${Math.min(...v)} إلى ${Math.max(...v)}، متوسط ${m.toFixed(0)}، وسيط ${med(v).toFixed(0)} دج\n`}})}
+ let rows=await selRows();
+ const D=$("#edate").value||rows.reduce((m,r)=>r.date>m?r.date:m,"");
+ rows=rows.filter(r=>r.date===D);
+ const all=await getAll();
+ const by={};
+ rows.forEach(r=>{const k=(r.dir?r.dir+" — ":"")+r.commune;(by[k]=by[k]||[]).push(r)});
+ let t=`رصد أسعار — ${D}\n🟡 = ارتفاع عن آخر رصد سابق | 🔴 = غير متوفر\n`;
+ for(const k in by){
+  const R=by[k];t+=`\n📍 ${k}\n`;const warn=[];
+  PRODUCTS.forEach(p=>{
+   const pr=R.filter(r=>r.product===p.name);
+   const v=pr.filter(r=>r.price>0).map(r=>r.price);
+   const un=pr.filter(r=>r.avail==="غير متوفر").length;
+   if(v.length){
+    const m=v.reduce((x,y)=>x+y,0)/v.length,md=med(v);
+    const ref=all.filter(r=>r.product===p.name&&r.commune===R[0].commune&&(r.dir||"")===(R[0].dir||"")&&r.date<D&&r.price>0);
+    let flag="• ",tail="";
+    if(ref.length){
+     const pd=ref.reduce((x,r)=>r.date>x?r.date:x,"");
+     const pm=med(ref.filter(r=>r.date===pd).map(r=>r.price));
+     if(md>pm*(1+RISE_MIN)){flag="🟡 ⬆️ ";tail=` (ارتفاع +${((md/pm-1)*100).toFixed(0)}% عن ${pd})`}
+    }
+    t+=`${flag}${p.name} (${p.unit}): ${v.length} أسعار، من ${Math.min(...v)} إلى ${Math.max(...v)}، متوسط ${m.toFixed(0)}، وسيط ${md.toFixed(0)} دج${tail}\n`;
+   }
+   if(un)warn.push(`🔴 ⚠️ ${p.name} (${p.unit}): غير متوفر${pr.length>1?` في ${un} من ${pr.length} نقطة`:""}`);
+  });
+  if(warn.length)t+=`\n🔴 تحذير — منتجات غير متوفرة:\n`+warn.join("\n")+"\n";
+ }
  return t;
 }
 async function shareWA(){window.open("https://wa.me/?text="+encodeURIComponent(await summary()),"_blank")}
