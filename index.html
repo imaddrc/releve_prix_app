@@ -88,6 +88,9 @@ td:first-child,th:first-child{text-align:start}
   <div class="grid" id="types"></div>
   <label for="point">اسم نقطة البيع أو رقمها</label>
   <input type="text" id="point" placeholder="مثال: محل 01" autocomplete="off">
+  <label>الموقع الجغرافي GPS (اختياري)</label>
+  <button class="btn alt" id="locBtn" style="margin-top:0" onclick="getLoc()">📍 تحديد موقعي الحالي</button>
+  <div class="muted" id="locInfo" style="margin-top:6px"></div>
   <button class="btn dis" id="toCats" onclick="toCats()">التالي ←</button>
 </section>
 
@@ -148,7 +151,7 @@ const TARGET=5;
 const SZ=["كبير","متوسط","صغير"],SIZED=["الخضر","الفواكه"];
 const $=s=>document.querySelector(s);
 const DIRS=["سطيف","بجاية","جيجل","ميلة","مسيلة","برج بوعريريج","بوسعادة"];
-const S={dir:"",commune:"",type:"",point:"",cat:""};
+const S={dir:"",commune:"",type:"",point:"",cat:"",lat:null,lng:null,acc:null};
 let cur={}, allCache=[], stack=["home"];
 
 /* ---------- IndexedDB ---------- */
@@ -189,6 +192,29 @@ async function refreshHome(){
  $("#homeStat").innerHTML=`اليوم: <b>${pts.size}</b> نقطة بيع — <b>${t.filter(r=>r.price>0).length}</b> سعر مسجّل<br>المجموع المحفوظ: ${a.length} سجل`;
 }
 
+/* ---------- location (optional) ---------- */
+function locShow(){
+ const i=$("#locInfo");if(!i)return;
+ if(S.lat==null){i.innerHTML="لم يُحدَّد الموقع — يمكنك المتابعة دون تحديده";return}
+ i.innerHTML=`✅ ${S.lat.toFixed(5)} ، ${S.lng.toFixed(5)}${S.acc!=null?` (دقة ≈ ${Math.round(S.acc)} م)`:""} <button class="rm" style="padding:4px 10px;font-size:14px" onclick="clearLoc()">✕ إزالة</button>`;
+}
+function clearLoc(){S.lat=S.lng=S.acc=null;locShow()}
+function getLoc(){
+ if(!navigator.geolocation){toast("الجهاز لا يدعم تحديد الموقع");return}
+ $("#locInfo").textContent="⏳ جارٍ تحديد الموقع…";
+ navigator.geolocation.getCurrentPosition(async p=>{
+  S.lat=p.coords.latitude;S.lng=p.coords.longitude;S.acc=p.coords.accuracy;locShow();
+  validate();
+  if(S.commune&&S.type&&S.point){
+   const ex=(await getAll()).filter(samePt);
+   for(const r of ex){r.lat=S.lat;r.lng=S.lng;r.acc=S.acc;await put(r)}
+  }
+  toast("تم تحديد الموقع");
+ },e=>{
+  $("#locInfo").textContent=e.code===1?"تم رفض إذن الموقع — فعّله من إعدادات المتصفح أو تابع دون موقع":e.code===3?"انتهت المهلة — جرّب في مكان مفتوح أو تابع دون موقع":"تعذّر تحديد الموقع — يمكنك المتابعة دونه";
+ },{enableHighAccuracy:true,timeout:20000,maximumAge:0});
+}
+
 /* ---------- setup ---------- */
 function renderTypes(){
  $("#types").innerHTML=TYPES.map(([n,i])=>`<button class="card ${S.type===n?"sel":""}" data-v="${n}"><span class="ic">${i}</span>${n}</button>`).join("");
@@ -200,12 +226,13 @@ function validate(){
 }
 $("#commune").oninput=validate;$("#point").oninput=validate;
 function startNew(){if(!S.dir){toast("اختر المديرية أولاً");return}
- S.type="";S.point="";S.cat="";
+ S.type="";S.point="";S.cat="";clearLoc();
  $("#commune").value=localStorage.getItem("commune")||"";$("#point").value="";
  renderTypes();validate();go("setup")}
-function startNewPointSameCommune(){S.type="";S.point="";$("#point").value="";renderTypes();validate();stack=["home"];go("setup")}
-function toCats(){
+function startNewPointSameCommune(){S.type="";S.point="";clearLoc();$("#point").value="";renderTypes();validate();stack=["home"];go("setup")}
+async function toCats(){
  validate();if(!(S.commune&&S.type&&S.point)){toast("أكمل البيانات");return}
+ if(S.lat==null){const ex=(await getAll()).find(r=>samePt(r)&&r.lat!=null);if(ex){S.lat=ex.lat;S.lng=ex.lng;S.acc=ex.acc}}
  localStorage.setItem("commune",S.commune);
  renderCats();go("cats");
 }
@@ -287,7 +314,7 @@ async function saveCat(again){
    const price=parseFloat(c.price);
    if(!c.avail&&!(price>0))continue;
    await put({key:[today(),S.dir,S.commune,S.type,S.point,p.name,seq].join("|"),seq,dir:S.dir,date:today(),time:nowT(),commune:S.commune,type:S.type,point:S.point,cat:p.cat,
-    product:p.name,unit:p.unit,size:SIZED.includes(p.cat)?(c.size||""):"",price:price>0?price:0,avail:c.avail||"متوسط"});
+    lat:S.lat,lng:S.lng,acc:S.acc,product:p.name,unit:p.unit,size:SIZED.includes(p.cat)?(c.size||""):"",price:price>0?price:0,avail:c.avail||"متوسط"});
    seq++;n++;
   }
  }
@@ -320,9 +347,9 @@ async function drawProg(a){
 }
 
 /* ---------- export ---------- */
-const HEAD=["المديرية","التاريخ","الوقت","البلدية","نوع نقطة البيع","نقطة البيع","الفئة","المنتج","الوحدة","الحجم","السعر (دج)","درجة التوفر"];
+const HEAD=["المديرية","التاريخ","الوقت","البلدية","نوع نقطة البيع","نقطة البيع","الفئة","المنتج","الوحدة","الحجم","السعر (دج)","درجة التوفر","خط العرض","خط الطول","الدقة (م)","رابط الخريطة"];
 const AVL={"كثرة":"متوفر بكثرة","متوسط":"متوفر بكمية متوسطة","قليل":"متوفر بقليل","غير متوفر":"غير متوفر"};
-const toRow=r=>[r.dir||"",r.date,r.time,r.commune,r.type,r.point,r.cat,r.product,r.unit,r.size||"",r.price>0?r.price:"",AVL[r.avail]||r.avail];
+const toRow=r=>[r.dir||"",r.date,r.time,r.commune,r.type,r.point,r.cat,r.product,r.unit,r.size||"",r.price>0?r.price:"",AVL[r.avail]||r.avail,r.lat!=null?+r.lat.toFixed(6):"",r.lat!=null?+r.lng.toFixed(6):"",r.acc!=null?Math.round(r.acc):"",r.lat!=null?`https://maps.google.com/?q=${r.lat},${r.lng}`:""];
 const SH=["المديرية","التاريخ","البلدية","الفئة","المنتج","الوحدة","الحجم","عدد الأسعار","أدنى سعر","أعلى سعر","المتوسط","الوسيط"];
 function med(a){const s=[...a].sort((x,y)=>x-y),m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2}
 const r2=x=>Math.round(x*100)/100;
