@@ -362,6 +362,6 @@ function initDir(){
  gateHome();
 }
 initDir();
-$("#ver").textContent="النسخة "+VERSION;
+
 openDB().then(refreshHome);
 if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js");
