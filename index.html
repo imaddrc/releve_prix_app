@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1b6b3a">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg">
+<link rel="stylesheet" href="style.css"> <!-- ربط ملف التنسيقات -->
+<title>رصد الأسعار</title>
+</head>
+<body>
+<div id="off">وضع دون إنترنت — البيانات محفوظة في هاتفك</div>
+<header><button id="back" style="display:none">→ رجوع</button><h1 id="title">رصد الأسعار</h1></header>
+<main>
+
+<section id="s-home" class="screen on">
+  <label for="dirSel">المديرية الولائية للتجارة (إجباري)</label>
+  <select id="dirSel"></select>
+  <div class="ctx" id="homeStat" style="margin-top:12px"></div>
+  <button class="btn hb" onclick="startNew()">＋ رصد جديد</button>
+  <button class="btn alt hb" onclick="showProgress()">📊 متابعة عدد الأسعار المجموعة</button>
+  <button class="btn alt hb" onclick="showExport()">📤 تصدير وإرسال البيانات</button>
+</section>
+
+<section id="s-setup" class="screen">
+  <label for="commune">البلدية (إجباري)</label>
+  <input type="text" id="commune" placeholder="اكتب اسم البلدية" autocomplete="off">
+  <label>نوع نقطة البيع</label>
+  <div class="grid" id="types"></div>
+  <label for="point">اسم نقطة البيع أو رقمها</label>
+  <input type="text" id="point" placeholder="مثال: محل 01" autocomplete="off">
+  <label>الموقع الجغرافي GPS (اختياري)</label>
+  <button class="btn alt" id="locBtn" style="margin-top:0" onclick="getLoc()">📍 تحديد موقعي الحالي</button>
+  <div class="muted" id="locInfo" style="margin-top:6px"></div>
+  <button class="btn dis" id="toCats" onclick="toCats()">التالي ←</button>
+</section>
+
+<section id="s-cats" class="screen">
+  <div class="ctx" id="ctx1"></div>
+  <h2>اختر فئة المنتجات</h2>
+  <div class="grid" id="cats"></div>
+  <button class="btn alt" onclick="startNewPointSameCommune()">نقطة بيع جديدة (نفس البلدية)</button>
+  <button class="btn alt" onclick="go('home')">إنهاء</button>
+</section>
+
+<section id="s-prods" class="screen">
+  <div class="ctx" id="ctx2"></div>
+  <p class="muted">سجّل السعر فقط للمنتجات الموجودة. زر «إضافة أسعار» يحفظ ما أدخلته ثم يفتح نموذجاً فارغاً لنقطة بيع أخرى في نفس السوق (الأسعار السابقة تبقى محفوظة). المنتج غير الموجود اضغط عليه «غير متوفر».</p>
+  <div id="plist"></div>
+  <div class="bar"><button class="btn" onclick="saveCat()">💾 حفظ هذه الفئة</button><button class="btn alt" onclick="saveCat(true)">➕ إضافة أسعار</button></div>
+</section>
+
+<section id="s-prog" class="screen">
+  <label for="pcom">البلدية</label><select id="pcom"></select>
+  <label for="pdate">التاريخ</label><select id="pdate"></select>
+  <h2>عدد الأسعار المجموعة (الهدف 5 لكل منتج)</h2>
+  <div style="overflow:auto"><table id="ptab"></table></div>
+  <p class="muted" id="pnote"></p>
+</section>
+
+<section id="s-exp" class="screen">
+  <div class="ctx" id="expStat"></div>
+  <label for="edate">البيانات المصدّرة</label>
+  <select id="edate"></select>
+  <label for="edir">المديرية</label>
+  <select id="edir"></select>
+  <button class="btn" onclick="doExport('xlsx')">📗 تصدير Excel (.xlsx)</button>
+  <button class="btn alt" onclick="doExport('csv')">📄 تصدير CSV</button>
+  <button class="btn alt" onclick="doExport('csvsum')">📊 ملخص CSV (المتوسط والوسيط)</button>
+  <h2>إرسال</h2>
+  <button class="btn alt" onclick="shareFile()">📎 مشاركة الملف (واتساب، بريد، ...)</button>
+  <button class="btn alt" onclick="shareWA()">💬 إرسال ملخص نصي عبر واتساب</button>
+  <button class="btn alt" onclick="shareMail()">✉️ إرسال ملخص بالبريد الإلكتروني</button>
+  <p class="muted">لإرسال الملف نفسه استعمل «مشاركة الملف». واتساب والبريد عبر الرابط يرسلان ملخصاً نصياً فقط.</p>
+  <button class="btn alt" style="color:var(--rd);border-color:var(--rd)" onclick="wipe()">🗑 حذف بيانات يوم</button>
+</section>
+
+</main>
+<div class="toast" id="toast"></div>
+
+<script src="app.js"></script> <!-- ربط ملف الجافاسكريبت -->
+</body>
+</html>
