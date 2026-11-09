@@ -1,5 +1,5 @@
 window.addEventListener("error",e=>{const m=document.getElementById("err");if(m){m.style.display="block";m.textContent="⚠️ خطأ: "+e.message+" ("+String(e.filename||"").split("/").pop()+":"+e.lineno+")"}});
-const VERSION=11;
+const VERSION=12;
 const TYPES=[["سوق تجزئة","🛒"],["سوق جملة","🏬"],["سوبرماركت","🏪"],["محل تجاري","🏠"]];
 const CATS=[["الخضر","🥕"],["الفواكه","🍎"],["مواد غذائية أساسية","🌾"],["اللحوم","🍗"]];
 const PRODUCTS=[
@@ -9,7 +9,9 @@ const PRODUCTS=[
 ["اللحوم","لحوم بيضاء (دجاج)","1 كلغ"],["اللحوم","لحم البقر المحلي","1 كلغ"],["اللحوم","بيض","بالوحدة"]
 ].map(([cat,name,unit])=>({cat,name,unit}));
 const AV=[["كثرة","بكثرة"],["متوسط","متوسط"],["قليل","بقليل"],["غير متوفر","غير متوفر"]];
-const TARGET=5,MAXP=20; /* الهدف 5 أسعار، والحد الأقصى 20 سعراً لكل منتج (في البلدية خلال اليوم) */
+const TARGET=5,MAXP=20; /* العدّاد من 20 (الحد الأقصى لكل منتج في البلدية خلال اليوم) — يصبح أخضر ابتداءً من TARGET=5 */
+const PICS={"طماطم":"🍅","بصل":"🧅","جزر":"🥕","تفاح":"🍎","موز":"🍌","برتقال":"🍊"}; /* صور الخضر والفواكه */
+const pic=n=>PICS[n]?`<span class="pic">${PICS[n]}</span>`:"";
 const SZ=["كبير","متوسط","صغير"],SIZED=["الخضر","الفواكه"];
 const $=s=>document.querySelector(s);
 const DIRS=["سطيف","بجاية","جيجل","ميلة","مسيلة","برج بوعريريج","بوسعادة"];
@@ -129,7 +131,7 @@ function renderProds(){
  $("#plist").innerHTML=PRODUCTS.filter(p=>p.cat===S.cat).map(p=>{
   const es=cur[p.name];
   return `<div class="prod" data-n="${esc(p.name)}">
-  <div class="top"><div><span class="nm">${esc(p.name)}</span> <span class="un">— ${esc(p.unit)}</span></div><span class="badge"></span></div>
+  <div class="top"><div>${pic(p.name)}<span class="nm">${esc(p.name)}</span> <span class="un">— ${esc(p.unit)}</span></div><span class="badge"></span></div>
   ${es.map((c,i)=>`<div class="ent" data-i="${i}">
    ${es.length>1?`<div class="muted" style="margin-top:6px">السعر ${i+1}</div>`:""}
    <div class="chips">${AV.map(([v,l])=>`<button class="chip ${c.avail===v?"sel":""}" data-v="${v}">${l}</button>`).join("")}</div>
@@ -162,7 +164,7 @@ function renderProds(){
 function badge(el,n){
  const es=cur[n];
  const c=othersCount(n)+es.filter(x=>parseFloat(x.price)>0).length;
- const b=el.querySelector(".badge");b.textContent=c>=MAXP?`${c} — الحد الأقصى`:`${c} / ${TARGET} أسعار`;
+ const b=el.querySelector(".badge");b.innerHTML=`<bdi dir="ltr">${c} / ${MAXP}</bdi> `+(c>=MAXP?"— الحد الأقصى":"أسعار");
  b.classList.toggle("ok",c>=TARGET);
  el.classList.toggle("has",es.some(x=>x.avail));
 }
@@ -208,8 +210,8 @@ async function drawProg(a){
  $("#ptab").innerHTML=`<tr><th>المنتج</th><th>الأسعار</th><th>متوفر</th><th>غير متوفر</th></tr>`+
  PRODUCTS.map(p=>{const r=rows.filter(x=>x.product===p.name);
   const np=r.filter(x=>x.price>0).length,nu=r.filter(x=>x.avail==="غير متوفر").length,na=r.length-nu;
-  return `<tr><td>${esc(p.name)} <small class="muted">${esc(p.unit)}</small></td><td style="color:${np>=TARGET?"var(--g)":"var(--rd)"};font-weight:700">${np}/${TARGET}</td><td>${na}</td><td>${nu}</td></tr>`}).join("");
- $("#pnote").textContent=`عدد نقاط البيع المعاينة: ${pts.size}. الأعداد الحمراء تعني أن الهدف (5 أسعار) لم يُبلغ بعد.`;
+  return `<tr><td>${pic(p.name)}${esc(p.name)} <small class="muted">${esc(p.unit)}</small></td><td style="color:${np>=TARGET?"var(--g)":"var(--rd)"};font-weight:700"><bdi dir="ltr">${np} / ${MAXP}</bdi></td><td>${na}</td><td>${nu}</td></tr>`}).join("");
+ $("#pnote").textContent=`عدد نقاط البيع المعاينة: ${pts.size}. الأحمر = أقل من 5 أسعار، والأخضر ابتداءً من 5 (الحد الأقصى 20).`;
 }
 
 /* ---------- export ---------- */

@@ -55,3 +55,4 @@ td:first-child,th:first-child{text-align:start}
 .sizes b{font-size:13px;color:var(--mu);font-weight:600}
 .szc{flex:1;border:1.5px solid var(--bd);background:#fff;border-radius:10px;padding:8px 2px;font-size:13px;font-family:inherit;color:var(--tx)}
 .szc.sel{background:#2d5fa8;border-color:#2d5fa8;color:#fff;font-weight:700}
+.pic{font-size:30px;line-height:1;margin-inline-end:8px;vertical-align:middle;display:inline-block}
