@@ -1,3 +1,5 @@
+window.addEventListener("error",e=>{const m=document.getElementById("err");if(m){m.style.display="block";m.textContent="⚠️ خطأ: "+e.message+" ("+String(e.filename||"").split("/").pop()+":"+e.lineno+")"}});
+const VERSION=11;
 const TYPES=[["سوق تجزئة","🛒"],["سوق جملة","🏬"],["سوبرماركت","🏪"],["محل تجاري","🏠"]];
 const CATS=[["الخضر","🥕"],["الفواكه","🍎"],["مواد غذائية أساسية","🌾"],["اللحوم","🍗"]];
 const PRODUCTS=[
@@ -358,5 +360,6 @@ function initDir(){
  gateHome();
 }
 initDir();
+$("#ver").textContent="النسخة "+VERSION;
 openDB().then(refreshHome);
 if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js");

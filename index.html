@@ -7,9 +7,11 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg">
 <title>رصد الأسعار</title>
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css" onerror="document.getElementById('miss').style.display='block'">
 </head>
 <body>
+<div id="miss" style="display:none;background:#b3261e;color:#fff;padding:12px;text-align:center;font-size:14px">⚠️ تعذّر تحميل ملفات التطبيق (app.js أو style.css). ارفع الملفات الستة معاً وافتح التطبيق عبر رابط https، لا من مدير الملفات.</div>
+<div id="err" style="display:none;background:#b3261e;color:#fff;padding:12px;text-align:center;font-size:14px"></div>
 <div id="off">وضع دون إنترنت — البيانات محفوظة في هاتفك</div>
 <header><button id="back" style="display:none">→ رجوع</button><h1 id="title">رصد الأسعار</h1></header>
 <main>
@@ -21,6 +23,7 @@
   <button class="btn hb" onclick="startNew()">＋ رصد جديد</button>
   <button class="btn alt hb" onclick="showProgress()">📊 متابعة عدد الأسعار المجموعة</button>
   <button class="btn alt hb" onclick="showExport()">📤 تصدير وإرسال البيانات</button>
+  <p class="muted" id="ver" style="text-align:center;margin-top:18px"></p>
 </section>
 
 <section id="s-setup" class="screen">
@@ -79,6 +82,6 @@
 </main>
 <div class="toast" id="toast"></div>
 
-<script src="app.js"></script>
+<script src="app.js" onerror="document.getElementById('miss').style.display='block'"></script>
 </body>
 </html>
