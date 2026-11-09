@@ -1,4 +1,4 @@
-const CACHE_NAME = 'releve-prix-cache-v2'; 
+const CACHE_NAME = 'releve-prix-cache-v1'; 
 const ASSETS = [
   './',
   './index.html',
