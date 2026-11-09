@@ -1,4 +1,4 @@
-const V = "prix-v02";
+const V = "prix-v12";
 const FILES = ["./", "index.html", "style.css", "app.js", "manifest.json", "icon.svg"];
 
 self.addEventListener("install", e => {
