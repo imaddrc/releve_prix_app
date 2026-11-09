@@ -1,14 +1,13 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-eval'; object-src 'self';">  
 <meta name="theme-color" content="#1b6b3a">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg">
-<link rel="stylesheet" href="style.css"> <!-- ربط ملف التنسيقات -->
 <title>رصد الأسعار</title>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div id="off">وضع دون إنترنت — البيانات محفوظة في هاتفك</div>
@@ -71,7 +70,7 @@
   <button class="btn alt" onclick="doExport('csvsum')">📊 ملخص CSV (المتوسط والوسيط)</button>
   <h2>إرسال</h2>
   <button class="btn alt" onclick="shareFile()">📎 مشاركة الملف (واتساب، بريد، ...)</button>
-  <button class="btn alt" onclick="shareWA()">💬 إرسال ملخص نصي عبر واتساب</button>
+  <button class="btn alt" onclick="shareWA()">💬 إرسال المنتجات غير المتوفرة عبر واتساب</button>
   <button class="btn alt" onclick="shareMail()">✉️ إرسال ملخص بالبريد الإلكتروني</button>
   <p class="muted">لإرسال الملف نفسه استعمل «مشاركة الملف». واتساب والبريد عبر الرابط يرسلان ملخصاً نصياً فقط.</p>
   <button class="btn alt" style="color:var(--rd);border-color:var(--rd)" onclick="wipe()">🗑 حذف بيانات يوم</button>
@@ -80,6 +79,6 @@
 </main>
 <div class="toast" id="toast"></div>
 
-<script src="app.js"></script> <!-- ربط ملف الجافاسكريبت -->
+<script src="app.js"></script>
 </body>
 </html>

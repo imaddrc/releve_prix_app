@@ -7,7 +7,7 @@ const PRODUCTS=[
 ["اللحوم","لحوم بيضاء (دجاج)","1 كلغ"],["اللحوم","لحم البقر المحلي","1 كلغ"],["اللحوم","بيض","بالوحدة"]
 ].map(([cat,name,unit])=>({cat,name,unit}));
 const AV=[["كثرة","بكثرة"],["متوسط","متوسط"],["قليل","بقليل"],["غير متوفر","غير متوفر"]];
-const TARGET=5;
+const TARGET=5,MAXP=20; /* الهدف 5 أسعار، والحد الأقصى 20 سعراً لكل منتج (في البلدية خلال اليوم) */
 const SZ=["كبير","متوسط","صغير"],SIZED=["الخضر","الفواكه"];
 const $=s=>document.querySelector(s);
 const DIRS=["سطيف","بجاية","جيجل","ميلة","مسيلة","برج بوعريريج","بوسعادة"];
@@ -134,7 +134,7 @@ function renderProds(){
    ${SIZED.includes(p.cat)?`<div class="sizes"><b>الحجم</b>${SZ.map(v=>`<button class="szc ${c.size===v?"sel":""}" data-s="${v}">${v}</button>`).join("")}</div>`:""}
    <div class="price"><input type="number" inputmode="decimal" min="0" step="any" placeholder="السعر" value="${esc(c.price)}" ${c.avail==="غير متوفر"?"disabled":""}><span>دج</span>${es.length>1?`<button class="rm">✕</button>`:""}</div>
   </div>`).join("")}
-  ${es.length < 20 ? `<button class="addp">＋ سعر آخر لنفس المنتج (محل آخر في السوق)</button>` : `<div class="muted" style="margin-top:10px;text-align:center">لقد وصلت للحد الأقصى (20 سعراً)</div>`}
+  <button class="addp">＋ سعر آخر لنفس المنتج (محل آخر في السوق)</button>
   </div>`}).join("");
  document.querySelectorAll(".prod").forEach(el=>{
   const n=el.dataset.n;
@@ -152,24 +152,26 @@ function renderProds(){
    const rm=ent.querySelector(".rm");
    if(rm)rm.onclick=()=>{cur[n].splice(i,1);renderProds()};
   });
-  const addBtn = el.querySelector(".addp");
-  if(addBtn) addBtn.onclick=()=>{if(cur[n].length<20){cur[n].push({avail:"",price:"",size:""});renderProds();
-   const inp=findInput(n,cur[n].length-1);if(inp)inp.scrollIntoView({block:"center"})}};
+  el.querySelector(".addp").onclick=()=>{if(othersCount(n)+cur[n].length>=MAXP){toast(`الحد الأقصى ${MAXP} سعراً لهذا المنتج`);return}cur[n].push({avail:"",price:"",size:""});renderProds();
+   const inp=findInput(n,cur[n].length-1);if(inp)inp.scrollIntoView({block:"center"})};
   badge(el,n);
  });
 }
 function badge(el,n){
  const es=cur[n];
  const c=othersCount(n)+es.filter(x=>parseFloat(x.price)>0).length;
- const b=el.querySelector(".badge");b.textContent=`${c} / ${TARGET} أسعار`;
+ const b=el.querySelector(".badge");b.textContent=c>=MAXP?`${c} — الحد الأقصى`:`${c} / ${TARGET} أسعار`;
  b.classList.toggle("ok",c>=TARGET);
  el.classList.toggle("has",es.some(x=>x.avail));
 }
 async function saveCat(again){
+ for(const p of PRODUCTS.filter(p=>p.cat===S.cat)){
+  const tot=othersCount(p.name)+cur[p.name].filter(x=>parseFloat(x.price)>0).length;
+  if(tot>MAXP){toast(`${p.name}: ${tot} سعراً — الحد الأقصى ${MAXP}. احذف ${tot-MAXP} بزر ✕`);return}
+ }
  let n=0;const all=await getAll();
  for(const p of PRODUCTS.filter(p=>p.cat===S.cat)){
   let seq=0;
-  if(cur[p.name].length > 20) { cur[p.name] = cur[p.name].slice(0, 20); }
   if(S.fresh){seq=Math.max(-1,...all.filter(r=>samePt(r)&&r.product===p.name).map(r=>r.seq||0))+1}
   else for(const r of all)if(samePt(r)&&r.product===p.name)await del(r.key);
   for(const c of cur[p.name]){
@@ -299,40 +301,42 @@ async function shareFile(){
  try{if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:"رصد الأسعار"});return}}catch(e){if(e.name==="AbortError")return}
  download(f);toast("المشاركة غير مدعومة هنا — تم تنزيل الملف");
 }
-
-async function summary(){
+const RISE_MIN=0; /* نسبة الارتفاع الدنيا لوسم 🟡 (0 = أي ارتفاع) */
+async function summary(only){
  let rows=await selRows();
  const D=$("#edate").value||rows.reduce((m,r)=>r.date>m?r.date:m,"");
  rows=rows.filter(r=>r.date===D);
+ const all=await getAll();
  const by={};
  rows.forEach(r=>{const k=(r.dir?r.dir+" — ":"")+r.commune;(by[k]=by[k]||[]).push(r)});
- let t=`رصد أسعار — ${D}\n🔴 المنتجات غير المتوفرة:\n`;
- let hasUnavailable = false;
-
+ let t=only?`🔴 منتجات غير متوفرة — ${D}\n`:`رصد أسعار — ${D}\n🟡 = ارتفاع عن آخر رصد سابق | 🔴 = غير متوفر\n`;
+ let any=false;
  for(const k in by){
-  const R=by[k];
-  const warn=[];
+  const R=by[k];let blk=`\n📍 ${k}\n`;const warn=[];
   PRODUCTS.forEach(p=>{
    const pr=R.filter(r=>r.product===p.name);
+   const v=pr.filter(r=>r.price>0).map(r=>r.price);
    const un=pr.filter(r=>r.avail==="غير متوفر").length;
-   
-   if(un) {
-     warn.push(`- ${p.name} (${p.unit}): غير متوفر${pr.length>1?` في ${un} من ${pr.length} نقطة`:""}`);
-     hasUnavailable = true;
+   if(v.length&&!only){
+    const m=v.reduce((x,y)=>x+y,0)/v.length,md=med(v);
+    const ref=all.filter(r=>r.product===p.name&&r.commune===R[0].commune&&(r.dir||"")===(R[0].dir||"")&&r.date<D&&r.price>0);
+    let flag="• ",tail="";
+    if(ref.length){
+     const pd=ref.reduce((x,r)=>r.date>x?r.date:x,"");
+     const pm=med(ref.filter(r=>r.date===pd).map(r=>r.price));
+     if(md>pm*(1+RISE_MIN)){flag="🟡 ⬆️ ";tail=` (ارتفاع +${((md/pm-1)*100).toFixed(0)}% عن ${pd})`}
+    }
+    blk+=`${flag}${p.name} (${p.unit}): ${v.length} أسعار، من ${Math.min(...v)} إلى ${Math.max(...v)}، متوسط ${m.toFixed(0)}، وسيط ${md.toFixed(0)} دج${tail}\n`;
    }
+   if(un)warn.push(`🔴 ⚠️ ${p.name} (${p.unit}): غير متوفر${pr.length>1?` في ${un} من ${pr.length} نقطة`:""}`);
   });
-  
-  if(warn.length) {
-    t += `\n📍 ${k}\n` + warn.join("\n") + "\n";
-  }
+  if(only){if(warn.length){any=true;t+=`\n📍 ${k}\n`+warn.join("\n")+"\n"}}
+  else{t+=blk;if(warn.length)t+=`\n🔴 تحذير — منتجات غير متوفرة:\n`+warn.join("\n")+"\n"}
  }
- 
- if(!hasUnavailable) {
-   t += "\n✅ جميع المنتجات متوفرة في هذه الفترة.\n";
- }
+ if(only&&!any)t+="\n✅ لا توجد منتجات غير متوفرة\n";
  return t;
 }
-async function shareWA(){window.open("https://wa.me/?text="+encodeURIComponent(await summary()),"_blank")}
+async function shareWA(){window.open("https://wa.me/?text="+encodeURIComponent(await summary(true)),"_blank")}
 async function shareMail(){location.href="mailto:?subject="+encodeURIComponent("رصد الأسعار")+"&body="+encodeURIComponent(await summary())}
 async function wipe(){
  const d=$("#edate").value;
